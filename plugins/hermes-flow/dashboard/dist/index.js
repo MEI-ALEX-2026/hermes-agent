@@ -23,9 +23,12 @@
   };
 
   function api(path, options) {
+    const token = window.__HERMES_SESSION_TOKEN__ || "";
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers["X-Hermes-Session-Token"] = token;
     return fetch("/api/plugins/hermes-flow" + path, {
       credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
+      headers,
       ...(options || {}),
     }).then((res) => {
       if (!res.ok) throw new Error("HTTP " + res.status);
@@ -683,20 +686,39 @@
       .replace(/"/g, "&quot;");
   }
 
-  window.registerHermesPlugin &&
-    window.registerHermesPlugin("hermes-flow", {
-      mount: function (el) {
-        el.appendChild(root);
-        load();
-        openEvents();
-        pollTimer = setInterval(load, 15000);
-      },
-      unmount: function () {
-        if (pollTimer) clearInterval(pollTimer);
-        if (ws) ws.close();
+  function FlowPage() {
+    const React = window.__HERMES_PLUGIN_SDK__.React;
+    const hostRef = React.useRef(null);
+    React.useEffect(function () {
+      const host = hostRef.current;
+      if (!host) return undefined;
+      host.appendChild(root);
+      load();
+      openEvents();
+      pollTimer = setInterval(load, 15000);
+      return function () {
+        if (pollTimer) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
+        if (ws) {
+          ws.close();
+          ws = null;
+        }
         root.remove();
-      },
-    });
+      };
+    }, []);
+    return React.createElement("div", { className: "hf-plugin-host", ref: hostRef });
+  }
+
+  if (
+    window.__HERMES_PLUGINS__ &&
+    typeof window.__HERMES_PLUGINS__.register === "function" &&
+    window.__HERMES_PLUGIN_SDK__ &&
+    window.__HERMES_PLUGIN_SDK__.React
+  ) {
+    window.__HERMES_PLUGINS__.register("hermes-flow", FlowPage);
+  }
 
   function openEvents() {
     const token = window.__HERMES_SESSION_TOKEN__ || "";
