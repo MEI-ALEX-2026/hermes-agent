@@ -1,0 +1,16 @@
+name: hermes-flow
+version: 0.1.0
+description: "Visual AI workflow orchestration for software development loops."
+author: "Hermes Agent"
+kind: backend
+provides_tools:
+  - flow_list_projects
+  - flow_list_workflows
+  - flow_get_workflow
+  - flow_get_run_status
+  - flow_get_run_summary
+  - flow_get_task_log_excerpt
+hooks:
+  - pre_tool_call
+  - pre_approval_request
+  - post_approval_response

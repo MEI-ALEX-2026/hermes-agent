@@ -1,0 +1,15 @@
+{
+  "name": "hermes-flow",
+  "label": "Flow",
+  "description": "Visual AI workflow orchestration for software development loops.",
+  "icon": "Workflow",
+  "version": "0.1.0",
+  "tab": {
+    "path": "/flow",
+    "position": "after:chat"
+  },
+  "slots": [],
+  "entry": "dist/index.js",
+  "css": "dist/style.css",
+  "api": "plugin_api.py"
+}
