@@ -20,7 +20,165 @@
     approvals: [],
     editingTaskId: "",
     editingEdgeId: "",
+    locale: "en",
   };
+
+  const I18N = {
+    en: {
+      title: "Flow",
+      subtitle: "Turn a development goal into a guided workflow: draft, confirm, queue, observe, and resume.",
+      refresh: "Refresh",
+      workerMissing: "Worker offline · run hermes flow daemon",
+      worker: "Worker",
+      active: "active",
+      running: "running",
+      start: "Start",
+      createProject: "Create project",
+      projectName: "Project name",
+      rootDir: "Repository path",
+      projectHint: "Create a project first. Workflows, templates, runs, and logs will stay scoped to it.",
+      templates: "Templates",
+      workflows: "Workflows",
+      runs: "Runs",
+      noRuns: "No runs yet",
+      noWorkflows: "No project workflows yet",
+      useTemplate: "Use template",
+      selectedTemplate: "Template preview",
+      templateHelp: "Copy this template into a project before editing or running it.",
+      draftGoal: "Describe the change you want",
+      createDraft: "Draft workflow",
+      project: "Project",
+      tasks: "Tasks",
+      edges: "Edges",
+      guardrails: "Guardrails",
+      status: "Status",
+      confirm: "Confirm",
+      queueRun: "Queue run",
+      readyToRun: "Ready to run",
+      draftNeedsConfirm: "Confirm the workflow before queueing it.",
+      canvasEmptyTitle: "No tasks yet",
+      canvasEmptyBody: "Add the first task or draft a workflow from the left panel.",
+      nextStep: "Next step",
+      taskEditor: "Task",
+      edgeEditor: "Edge",
+      addTask: "Add task",
+      saveTask: "Save task",
+      addEdge: "Add edge",
+      saveEdge: "Save edge",
+      taskTitle: "Task title",
+      taskGoal: "Task goal",
+      criteria: "Acceptance criteria",
+      executionDir: "Execution directory",
+      validation: "Validation commands",
+      aiReview: "AI review",
+      source: "Source",
+      target: "Target",
+      route: "Route",
+      observations: "Observe",
+      noPty: "No PTY takeover session",
+      selectRun: "Select a run to inspect logs",
+      approvals: "Approvals",
+      noApprovals: "No pending approvals",
+      logs: "Logs",
+      allowOnce: "Allow once",
+      allowRun: "Allow run",
+      deny: "Deny",
+      pause: "Pause",
+      resume: "Resume",
+      cancel: "Cancel",
+      send: "Send",
+      ptyInput: "Input to active PTY",
+      agentTemplates: "Agents",
+      executorSetup: "Execution setup",
+      noAgents: "No agent templates",
+      saveAgent: "Save agent",
+      agentName: "Agent name",
+      command: "Command or profile",
+      bindings: "Bindings",
+      bind: "Bind",
+      role: "Role",
+      selectProject: "Select a project to bind agents.",
+    },
+    zh: {
+      title: "Flow",
+      subtitle: "把开发目标变成可执行流程：起草、确认、排队、观察、接管和恢复。",
+      refresh: "刷新",
+      workerMissing: "Worker 未连接 · 运行 hermes flow daemon",
+      worker: "Worker",
+      active: "活跃",
+      running: "运行中",
+      start: "开始",
+      createProject: "创建项目",
+      projectName: "项目名称",
+      rootDir: "仓库路径",
+      projectHint: "先创建项目。工作流、模板副本、运行记录和日志都会归属到项目下。",
+      templates: "模板",
+      workflows: "工作流",
+      runs: "运行记录",
+      noRuns: "暂无运行记录",
+      noWorkflows: "还没有项目工作流",
+      useTemplate: "使用模板",
+      selectedTemplate: "模板预览",
+      templateHelp: "模板需要先复制到项目里，才能编辑和运行。",
+      draftGoal: "描述你想完成的改动",
+      createDraft: "生成草稿",
+      project: "项目",
+      tasks: "任务",
+      edges: "连线",
+      guardrails: "护栏",
+      status: "状态",
+      confirm: "确认流程",
+      queueRun: "加入队列",
+      readyToRun: "可以运行",
+      draftNeedsConfirm: "运行前需要先确认工作流。",
+      canvasEmptyTitle: "还没有任务",
+      canvasEmptyBody: "添加第一个任务，或从左侧输入目标生成草稿。",
+      nextStep: "下一步",
+      taskEditor: "任务",
+      edgeEditor: "连线",
+      addTask: "添加任务",
+      saveTask: "保存任务",
+      addEdge: "添加连线",
+      saveEdge: "保存连线",
+      taskTitle: "任务标题",
+      taskGoal: "任务目标",
+      criteria: "验收标准",
+      executionDir: "执行目录",
+      validation: "验证命令",
+      aiReview: "AI 复核",
+      source: "起点",
+      target: "终点",
+      route: "路由",
+      observations: "观察",
+      noPty: "暂无 PTY 接管会话",
+      selectRun: "选择运行记录查看日志",
+      approvals: "审批",
+      noApprovals: "暂无待审批事项",
+      logs: "日志",
+      allowOnce: "允许一次",
+      allowRun: "本次运行允许",
+      deny: "拒绝",
+      pause: "暂停",
+      resume: "恢复",
+      cancel: "取消",
+      send: "发送",
+      ptyInput: "输入到当前 PTY",
+      agentTemplates: "执行器",
+      executorSetup: "执行设置",
+      noAgents: "暂无执行器模板",
+      saveAgent: "保存执行器",
+      agentName: "执行器名称",
+      command: "命令或 profile",
+      bindings: "绑定",
+      bind: "绑定",
+      role: "角色",
+      selectProject: "选择项目后再绑定执行器。",
+    },
+  };
+
+  function copy() {
+    return String(state.locale || "").startsWith("zh") ? I18N.zh : I18N.en;
+  }
 
   function api(path, options) {
     const token = window.__HERMES_SESSION_TOKEN__ || "";
@@ -37,32 +195,31 @@
   }
 
   function render() {
-    const workflows = state.workflows || [];
+    const t = copy();
+    const workflows = visibleWorkflows();
+    const templates = templateWorkflows();
     root.innerHTML = [
       '<section class="hf-shell">',
       '<header class="hf-header">',
-      '<div><h1>Hermes Flow</h1><p>Design, queue, observe, and improve software workflow runs.</p></div>',
-      '<div class="hf-actions"><span class="hf-status">' + statusText() + '</span><button class="hf-refresh" type="button">Refresh</button></div>',
+      '<div><h1>' + esc(t.title) + '</h1><p>' + esc(t.subtitle) + '</p></div>',
+      '<div class="hf-actions"><span class="hf-status">' + statusText() + '</span><button class="hf-refresh" type="button">' + esc(t.refresh) + '</button></div>',
       "</header>",
       '<div class="hf-grid">',
       '<aside class="hf-list">',
-      '<h2>Projects</h2>',
-      '<form class="hf-project-form"><input name="name" placeholder="Project name" /><input name="root_dir" placeholder="Root directory" /><button type="submit">Create</button></form>',
+      '<div class="hf-step"><span>1</span><strong>' + esc(t.project) + '</strong></div>',
+      '<form class="hf-project-form"><input name="name" placeholder="' + esc(t.projectName) + '" /><input name="root_dir" placeholder="' + esc(t.rootDir) + '" /><button type="submit">' + esc(t.createProject) + '</button></form>',
       projectList(),
-      '<h2>Agent Templates</h2>',
-      '<form class="hf-agent-template-form"><input name="name" placeholder="Template name" /><select name="type"><option>hermes_cli</option><option>acp</option><option>pty_cli</option></select><input name="command" placeholder="Command or hermes profile" /><button type="submit">Save</button></form>',
-      agentTemplateList(),
-      '<h2>Agent Bindings</h2>',
-      bindingForm(),
-      bindingList(),
-      '<h2>Workflows</h2>',
-      '<form class="hf-draft"><input name="goal" placeholder="Draft development goal" /><button type="submit">Draft</button></form>',
-      workflows.map(workflowButton).join(""),
-      '<h2>Runs</h2>',
-      (state.runs || []).slice(0, 8).map(runRow).join("") || '<div class="hf-empty">No runs yet.</div>',
+      '<div class="hf-step"><span>2</span><strong>' + esc(t.start) + '</strong></div>',
+      '<form class="hf-draft"><input name="goal" placeholder="' + esc(t.draftGoal) + '" /><button type="submit">' + esc(t.createDraft) + '</button></form>',
+      '<h2>' + esc(t.templates) + '</h2>',
+      templates.map(workflowButton).join("") || '<div class="hf-empty">' + esc(t.noWorkflows) + '</div>',
+      '<h2>' + esc(t.workflows) + '</h2>',
+      workflows.map(workflowButton).join("") || '<div class="hf-empty">' + esc(t.noWorkflows) + '</div>',
+      '<h2>' + esc(t.runs) + '</h2>',
+      (state.runs || []).slice(0, 6).map(runRow).join("") || '<div class="hf-empty">' + esc(t.noRuns) + '</div>',
       "</aside>",
       '<main class="hf-main">',
-      state.selected ? workflowView(state.selected) : '<div class="hf-empty">Select a workflow.</div>',
+      state.selected ? workflowView(state.selected) : welcomeView(),
       "</main>",
       "</div>",
       "</section>",
@@ -71,38 +228,42 @@
   }
 
   function agentTemplateList() {
+    const t = copy();
     const templates = state.agentTemplates || [];
-    if (!templates.length) return '<div class="hf-empty">No agent templates.</div>';
+    if (!templates.length) return '<div class="hf-empty">' + esc(t.noAgents) + '</div>';
     return '<div class="hf-mini-list">' + templates.map((template) => '<span>' + esc(template.name) + " · " + esc(template.type) + "</span>").join("") + "</div>";
   }
 
   function bindingForm() {
+    const t = copy();
     const templates = state.agentTemplates || [];
     const options = templates.map((template) => '<option value="' + esc(template.id) + '">' + esc(template.name) + " · " + esc(template.type) + "</option>").join("");
     return [
       '<form class="hf-binding-form">',
-      '<input name="role" placeholder="Role, e.g. implementer" />',
+      '<input name="role" placeholder="' + esc(t.role) + '" />',
       '<select name="agent_template_id">' + options + "</select>",
-      '<button type="submit"' + (!templates.length || !state.selectedProject ? " disabled" : "") + ">Bind</button>",
+      '<button type="submit"' + (!templates.length || !state.selectedProject ? " disabled" : "") + ">" + esc(t.bind) + "</button>",
       "</form>",
     ].join("");
   }
 
   function bindingList() {
+    const t = copy();
     const bindings = state.bindings || [];
-    if (!state.selectedProject) return '<div class="hf-empty">Select a project.</div>';
-    if (!bindings.length) return '<div class="hf-empty">No bindings for this project.</div>';
+    if (!state.selectedProject) return '<div class="hf-empty">' + esc(t.selectProject) + '</div>';
+    if (!bindings.length) return '<div class="hf-empty">' + esc(t.selectProject) + '</div>';
     return '<div class="hf-mini-list">' + bindings.map((binding) => '<button type="button" data-binding-id="' + esc(binding.id) + '">' + esc(binding.role || "default") + " · " + esc(binding.agent_template_name || binding.agent_template_id) + "</button>").join("") + "</div>";
   }
 
   function workflowButton(wf) {
     const selected = state.selected && state.selected.id === wf.id ? " hf-active" : "";
-    return '<button class="hf-workflow' + selected + '" data-id="' + esc(wf.id) + '"><strong>' + esc(wf.name) + '</strong><span>' + esc(wf.status || "confirmed") + " · " + esc(wf.template_key || wf.id) + '</span></button>';
+    return '<button class="hf-workflow' + selected + '" data-id="' + esc(wf.id) + '"><strong>' + esc(displayWorkflowName(wf)) + '</strong><span>' + esc(workflowMeta(wf)) + '</span></button>';
   }
 
   function projectList() {
+    const t = copy();
     const projects = state.projects || [];
-    if (!projects.length) return '<div class="hf-empty">Create or select a project to start.</div>';
+    if (!projects.length) return '<div class="hf-empty hf-empty-compact">' + esc(t.projectHint) + '</div>';
     return projects
       .map((project) => {
         const active = state.selectedProject === project.id ? " hf-active" : "";
@@ -115,127 +276,203 @@
     return '<button class="hf-run-row" data-run-id="' + esc(run.id) + '"><strong>' + esc(run.status) + '</strong><span>' + esc(run.id) + '</span></button>';
   }
 
+  function welcomeView() {
+    const t = copy();
+    return [
+      '<section class="hf-welcome">',
+      '<div class="hf-welcome-copy"><h2>' + esc(t.createProject) + '</h2><p>' + esc(t.projectHint) + '</p></div>',
+      '<div class="hf-guide">',
+      '<div><strong>1</strong><span>' + esc(t.createProject) + '</span></div>',
+      '<div><strong>2</strong><span>' + esc(t.createDraft) + '</span></div>',
+      '<div><strong>3</strong><span>' + esc(t.confirm) + ' / ' + esc(t.queueRun) + '</span></div>',
+      '</div>',
+      '</section>',
+    ].join("");
+  }
+
   function workflowView(wf) {
+    const t = copy();
     const tasks = wf.tasks || [];
     const edges = wf.edges || [];
-    const nodes = tasks.map(nodeView).join("");
+    const isTemplate = Boolean(wf.template_key);
+    const nodes = tasks.map((task, index) => nodeView(task, index)).join("");
     return [
       '<div class="hf-toolbar">',
-      '<div><h2>' + esc(wf.name) + '</h2><p>' + esc(wf.goal || "") + '</p><span class="hf-pill">' + esc(wf.status || "confirmed") + "</span></div>",
-      workflowActions(wf),
+      '<div><h2>' + esc(displayWorkflowName(wf)) + '</h2><p>' + esc(displayWorkflowGoal(wf)) + '</p><div class="hf-meta-row"><span class="hf-pill">' + esc(isTemplate ? t.selectedTemplate : displayStatus(wf.status || "confirmed")) + '</span><span>' + esc(tasks.length) + ' ' + esc(t.tasks) + '</span><span>' + esc(edges.length) + ' ' + esc(t.edges) + '</span></div></div>',
       "</div>",
       '<div class="hf-workspace">',
-      '<div class="hf-canvas">' + nodes + "</div>",
-      '<aside class="hf-editor">',
-      '<h3>Task</h3>',
-      taskForm(wf),
-      '<h3>Edge</h3>',
-      edgeForm(tasks),
-      '<h3>Run Logs</h3>',
-      logsView(),
-      '<h3>Approvals</h3>',
-      approvalsView(),
+      isTemplate ? templateCanvas(wf) : '<div class="hf-canvas">' + (nodes || canvasEmpty()) + "</div>",
+      '<aside class="hf-editor">' + contextPanel(wf),
       "</aside>",
       "</div>",
       '<div class="hf-detail">',
-      '<strong>' + tasks.length + "</strong> tasks · <strong>" + edges.length + "</strong> edges · guardrails " + esc(String(wf.max_loop_iterations)) + "/" + esc(String(wf.max_task_steps)) + "/" + esc(String(wf.max_duration_minutes)) + "m",
+      '<span><strong>' + esc(t.guardrails) + '</strong> ' + esc(String(wf.max_loop_iterations)) + "/" + esc(String(wf.max_task_steps)) + "/" + esc(String(wf.max_duration_minutes)) + "m</span>",
       edgeList(edges, tasks),
       "</div>",
     ].join("");
   }
 
   function workflowActions(wf) {
-    if (wf.template_key) return '<button class="hf-use-template" type="button">Use Template</button>';
-    if ((wf.status || "confirmed") !== "confirmed") return '<button class="hf-confirm" type="button">Confirm</button>';
-    return '<button class="hf-run" type="button">Queue Run</button>';
+    const t = copy();
+    if (wf.template_key) return '<button class="hf-use-template" type="button">' + esc(t.useTemplate) + '</button>';
+    if ((wf.status || "confirmed") !== "confirmed") return '<button class="hf-confirm" type="button">' + esc(t.confirm) + '</button>';
+    return '<button class="hf-run" type="button">' + esc(t.queueRun) + '</button>';
   }
 
   function nodeView(task) {
     return [
       '<button class="hf-node" data-task-id="' + esc(task.id) + '" style="left:' + Number(task.position_x || 0) + 'px;top:' + Number(task.position_y || 0) + 'px">',
-      '<strong>' + esc(task.title) + "</strong>",
-      '<span>' + esc(task.status) + "</span>",
+      '<strong>' + esc(displayTaskTitle(task)) + "</strong>",
+      '<span>' + esc(displayStatus(task.status)) + "</span>",
       "</button>",
     ].join("");
   }
 
+  function templateCanvas(wf) {
+    const tasks = wf.tasks || [];
+    if (!tasks.length) return '<div class="hf-template-flow">' + canvasEmpty() + '</div>';
+    return '<div class="hf-template-flow">' + tasks.map((task, index) => [
+      '<div class="hf-template-step">',
+      '<span>' + String(index + 1) + '</span>',
+      '<strong>' + esc(displayTaskTitle(task)) + '</strong>',
+      '<em>' + esc(displayStatus(task.status || "draft")) + '</em>',
+      '</div>',
+    ].join("")).join("") + '</div>';
+  }
+
+  function contextPanel(wf) {
+    const t = copy();
+    if (wf.template_key) {
+      return [
+        '<section class="hf-panel-section hf-next">',
+        '<h3>' + esc(t.nextStep) + '</h3>',
+        '<p>' + esc(t.templateHelp) + '</p>',
+        '<button class="hf-use-template hf-wide" type="button">' + esc(t.useTemplate) + '</button>',
+        '</section>',
+        '<section class="hf-panel-section"><h3>' + esc(t.tasks) + '</h3>' + taskSummaryList(wf) + '</section>',
+      ].join("");
+    }
+    return [
+      '<section class="hf-panel-section hf-next">',
+      '<h3>' + esc(t.nextStep) + '</h3>',
+      '<p>' + esc((wf.status || "confirmed") === "confirmed" ? t.readyToRun : t.draftNeedsConfirm) + '</p>',
+      workflowActions(wf),
+      '</section>',
+      '<section class="hf-panel-section"><h3>' + esc(t.taskEditor) + '</h3>' + taskForm(wf) + '</section>',
+      '<section class="hf-panel-section"><h3>' + esc(t.edgeEditor) + '</h3>' + edgeForm(wf.tasks || []) + '</section>',
+      '<section class="hf-panel-section"><h3>' + esc(t.observations) + '</h3>' + logsView() + '</section>',
+      '<section class="hf-panel-section"><h3>' + esc(t.approvals) + '</h3>' + approvalsView() + '</section>',
+      '<details class="hf-advanced"><summary>' + esc(t.executorSetup) + '</summary><div class="hf-advanced-body">' + agentTemplateForm() + agentTemplateList() + bindingForm() + bindingList() + '</div></details>',
+    ].join("");
+  }
+
+  function agentTemplateForm() {
+    const t = copy();
+    return [
+      '<form class="hf-agent-template-form">',
+      '<input name="name" placeholder="' + esc(t.agentName) + '" />',
+      '<select name="type"><option value="hermes_cli">Hermes CLI</option><option value="pty_cli">PTY CLI</option></select>',
+      '<input name="command" placeholder="' + esc(t.command) + '" />',
+      '<button type="submit">' + esc(t.saveAgent) + '</button>',
+      '</form>',
+    ].join("");
+  }
+
+  function canvasEmpty() {
+    const t = copy();
+    return '<div class="hf-canvas-empty"><strong>' + esc(t.canvasEmptyTitle) + '</strong><span>' + esc(t.canvasEmptyBody) + '</span></div>';
+  }
+
+  function taskSummaryList(wf) {
+    const tasks = wf.tasks || [];
+    if (!tasks.length) return canvasEmpty();
+    return '<div class="hf-task-summary">' + tasks.map((task, index) => '<div><span>' + String(index + 1) + '</span><strong>' + esc(displayTaskTitle(task) || task.id) + '</strong><em>' + esc(displayStatus(task.status || "draft")) + '</em></div>').join("") + '</div>';
+  }
+
   function taskForm(wf) {
+    const t = copy();
     const task = findTask(state.editingTaskId) || {};
     return [
       '<form class="hf-task-form">',
-      '<input name="title" placeholder="Task title" required value="' + esc(task.title || "") + '" />',
-      '<textarea name="goal" placeholder="Task goal">' + esc(task.goal || "") + "</textarea>",
-      '<textarea name="acceptance_criteria" placeholder="Acceptance criteria">' + esc(task.acceptance_criteria || "") + "</textarea>",
-      '<input name="execution_dir" placeholder="Execution dir, relative to root" value="' + esc(task.execution_dir || "") + '" />',
-      '<input name="validation_commands" placeholder="Validation commands, comma-separated" value="' + esc((task.validation_commands || []).join(", ")) + '" />',
-      '<label class="hf-check"><input name="ai_review_enabled" type="checkbox"' + (((task.metadata || {}).ai_review_enabled) ? " checked" : "") + " /> AI review</label>",
-      '<div class="hf-two"><input name="position_x" type="number" placeholder="X" value="' + Number(task.position_x == null ? (wf.tasks || []).length * 240 : task.position_x) + '" /><input name="position_y" type="number" placeholder="Y" value="' + Number(task.position_y || 0) + '" /></div>',
-      '<button type="submit">' + (state.editingTaskId ? "Save Task" : "Add Task") + "</button>",
+      '<input name="title" placeholder="' + esc(t.taskTitle) + '" required value="' + esc(task.title || "") + '" />',
+      '<textarea name="goal" placeholder="' + esc(t.taskGoal) + '">' + esc(task.goal || "") + "</textarea>",
+      '<textarea name="acceptance_criteria" placeholder="' + esc(t.criteria) + '">' + esc(task.acceptance_criteria || "") + "</textarea>",
+      '<input name="execution_dir" placeholder="' + esc(t.executionDir) + '" value="' + esc(task.execution_dir || "") + '" />',
+      '<input name="validation_commands" placeholder="' + esc(t.validation) + '" value="' + esc((task.validation_commands || []).join(", ")) + '" />',
+      '<label class="hf-check"><input name="ai_review_enabled" type="checkbox"' + (((task.metadata || {}).ai_review_enabled) ? " checked" : "") + " /> " + esc(t.aiReview) + "</label>",
+      '<div class="hf-two"><input name="position_x" type="number" aria-label="X" placeholder="X" value="' + Number(task.position_x == null ? (wf.tasks || []).length * 240 : task.position_x) + '" /><input name="position_y" type="number" aria-label="Y" placeholder="Y" value="' + Number(task.position_y || 0) + '" /></div>',
+      '<button type="submit">' + esc(state.editingTaskId ? t.saveTask : t.addTask) + "</button>",
       "</form>",
     ].join("");
   }
 
   function edgeForm(tasks) {
+    const t = copy();
     const edge = findEdge(state.editingEdgeId) || {};
-    const sourceOptions = tasks.map((task) => '<option value="' + esc(task.id) + '"' + selected(task.id, edge.source_task_id) + ">" + esc(task.title) + "</option>").join("");
-    const targetOptions = tasks.map((task) => '<option value="' + esc(task.id) + '"' + selected(task.id, edge.target_task_id) + ">" + esc(task.title) + "</option>").join("");
+    const sourceOptions = '<option value="">' + esc(t.source) + '</option>' + tasks.map((task) => '<option value="' + esc(task.id) + '"' + selected(task.id, edge.source_task_id) + ">" + esc(task.title) + "</option>").join("");
+    const targetOptions = '<option value="">' + esc(t.target) + '</option>' + tasks.map((task) => '<option value="' + esc(task.id) + '"' + selected(task.id, edge.target_task_id) + ">" + esc(task.title) + "</option>").join("");
     const edgeType = edge.edge_type || "dependency";
     return [
       '<form class="hf-edge-form">',
       '<select name="source_task_id">' + sourceOptions + "</select>",
       '<select name="target_task_id">' + targetOptions + "</select>",
       '<select name="edge_type">' + ["dependency", "success", "failure", "always", "manual"].map((type) => '<option value="' + type + '"' + selected(type, edgeType) + ">" + type + "</option>").join("") + "</select>",
-      '<button type="submit">' + (state.editingEdgeId ? "Save Edge" : "Add Edge") + "</button>",
+      '<button type="submit">' + esc(state.editingEdgeId ? t.saveEdge : t.addEdge) + "</button>",
       "</form>",
     ].join("");
   }
 
   function edgeList(edges, tasks) {
+    const t = copy();
     const names = {};
     tasks.forEach((task) => {
-      names[task.id] = task.title;
+      names[task.id] = displayTaskTitle(task);
     });
-    if (!edges.length) return '<div class="hf-edge-list">No edges.</div>';
-    return '<div class="hf-edge-list">' + edges.map((edge) => '<button type="button" data-edge-id="' + esc(edge.id) + '">' + esc(names[edge.source_task_id] || edge.source_task_id) + ' -> ' + esc(names[edge.target_task_id] || edge.target_task_id) + ' · ' + esc(edge.edge_type) + "</button>").join("") + "</div>";
+    if (!edges.length) return '<div class="hf-edge-list"><span>' + esc(t.edges) + ': 0</span></div>';
+    return '<div class="hf-edge-list">' + edges.map((edge) => '<button type="button" data-edge-id="' + esc(edge.id) + '">' + esc(names[edge.source_task_id] || edge.source_task_id) + ' -> ' + esc(names[edge.target_task_id] || edge.target_task_id) + ' · ' + esc(displayEdgeType(edge.edge_type)) + "</button>").join("") + "</div>";
   }
 
   function logsView() {
+    const t = copy();
     const sessions = state.ptySessions || [];
     const pty = sessions.length
       ? [
           '<div class="hf-pty">',
           sessions.map((session) => '<button class="hf-pty-row" data-pty-id="' + esc(session.id) + '"><strong>' + esc(session.closed ? "closed" : "takeover") + '</strong><span>' + esc(session.id) + "</span></button>").join(""),
-          '<form class="hf-pty-input"><input name="text" placeholder="Input to selected PTY" /><button type="submit">Send</button></form>',
+          '<form class="hf-pty-input"><input name="text" placeholder="' + esc(t.ptyInput) + '" /><button type="submit">' + esc(t.send) + '</button></form>',
           "</div>",
         ].join("")
-      : '<div class="hf-empty">No PTY takeover sessions.</div>';
+      : '<div class="hf-empty">' + esc(t.noPty) + '</div>';
     const controls = runControlButtons();
-    const logs = state.logRunId ? controls + '<pre class="hf-logs">' + esc((state.logs || []).map((entry) => entry.log).join("\n\n")) + "</pre>" : '<div class="hf-empty">Select a run.</div>';
+    const logs = state.logRunId ? controls + '<pre class="hf-logs">' + esc((state.logs || []).map((entry) => entry.log).join("\n\n")) + "</pre>" : '<div class="hf-empty">' + esc(t.selectRun) + '</div>';
     return pty + logs + runDetailsView();
   }
 
   function approvalsView() {
+    const t = copy();
     const approvals = state.approvals || [];
-    if (!approvals.length) return '<div class="hf-empty">No approvals.</div>';
+    if (!approvals.length) return '<div class="hf-empty">' + esc(t.noApprovals) + '</div>';
     return '<div class="hf-approvals">' + approvals.slice(0, 6).map((approval) => [
       '<div class="hf-approval">',
       '<strong>' + esc(approval.risk_level || "risk") + " · " + esc(approval.executor_type || "") + "</strong>",
       '<span>' + esc(approval.trigger_reason || approval.command || approval.target_path || approval.id) + "</span>",
       approval.log_excerpt ? '<pre>' + esc(approval.log_excerpt) + "</pre>" : "",
-      '<button type="button" data-approval-id="' + esc(approval.id) + '" data-decision="allow_once">Allow once</button>',
-      '<button type="button" data-approval-id="' + esc(approval.id) + '" data-decision="allow_run">Allow run</button>',
-      '<button type="button" data-approval-id="' + esc(approval.id) + '" data-decision="deny">Deny</button>',
+      '<button type="button" data-approval-id="' + esc(approval.id) + '" data-decision="allow_once">' + esc(t.allowOnce) + '</button>',
+      '<button type="button" data-approval-id="' + esc(approval.id) + '" data-decision="allow_run">' + esc(t.allowRun) + '</button>',
+      '<button type="button" data-approval-id="' + esc(approval.id) + '" data-decision="deny">' + esc(t.deny) + '</button>',
       "</div>",
     ].join("")).join("") + "</div>";
   }
 
   function runControlButtons() {
+    const t = copy();
     if (!state.logRunId || !state.runDetails || isTerminalRun(state.runDetails.status)) return "";
-    if (state.runDetails.status === "paused") return '<button class="hf-resume-run" type="button">Resume Run</button><button class="hf-cancel-run" type="button">Cancel Run</button>';
-    return '<button class="hf-pause-run" type="button">Pause Run</button><button class="hf-cancel-run" type="button">Cancel Run</button>';
+    if (state.runDetails.status === "paused") return '<button class="hf-resume-run" type="button">' + esc(t.resume) + '</button><button class="hf-cancel-run" type="button">' + esc(t.cancel) + '</button>';
+    return '<button class="hf-pause-run" type="button">' + esc(t.pause) + '</button><button class="hf-cancel-run" type="button">' + esc(t.cancel) + '</button>';
   }
 
   function runDetailsView() {
+    const t = copy();
     const details = state.runDetails;
     if (!details) return "";
     const validation = (details.validation_results || [])
@@ -247,10 +484,10 @@
       .join("");
     return [
       '<div class="hf-run-detail">',
-      '<h4>Validation</h4>',
-      validation ? "<ul>" + validation + "</ul>" : '<div class="hf-empty">No validation results.</div>',
-      '<h4>Analysis</h4>',
-      summaries ? "<ul>" + summaries + "</ul>" : '<div class="hf-empty">No summaries yet.</div>',
+      '<h4>' + esc(t.validation) + '</h4>',
+      validation ? "<ul>" + validation + "</ul>" : '<div class="hf-empty">' + esc(t.selectRun) + '</div>',
+      '<h4>' + esc(t.status) + '</h4>',
+      summaries ? "<ul>" + summaries + "</ul>" : '<div class="hf-empty">' + esc(t.selectRun) + '</div>',
       "</div>",
     ].join("");
   }
@@ -322,10 +559,11 @@
   }
 
   function statusText() {
+    const t = copy();
     const daemon = state.status && state.status.daemon;
     const hb = daemon && daemon.heartbeat;
-    if (!hb || !hb.status) return "Worker not seen · run: hermes flow daemon";
-    return "Worker " + hb.status + " · active " + Number(hb.active_workers || 0) + " · running " + Number(daemon.running_workflow_count || 0);
+    if (!hb || !hb.status) return t.workerMissing;
+    return t.worker + " " + hb.status + " · " + t.active + " " + Number(hb.active_workers || 0) + " · " + t.running + " " + Number(daemon.running_workflow_count || 0);
   }
 
   function load() {
@@ -341,17 +579,18 @@
         return loadProjectBindings().then(loadWorkflows);
       })
       .catch((err) => {
-        root.innerHTML = '<div class="hf-error">Hermes Flow failed to load: ' + esc(err.message) + "</div>";
+        const t = copy();
+        root.innerHTML = '<div class="hf-error">' + esc(t.title) + " " + (String(state.locale || "").startsWith("zh") ? "加载失败：" : "failed to load: ") + esc(err.message) + "</div>";
       });
   }
 
   function loadWorkflows() {
-    const query = state.selectedProject ? "?include_templates=true&project_id=" + encodeURIComponent(state.selectedProject) : "?include_templates=true";
-    return api("/workflows" + query).then((workflows) => {
+    return api("/workflows?include_templates=true").then((workflows) => {
       state.workflows = workflows.workflows || [];
-      if (!state.selected && state.workflows[0]) return selectWorkflow(state.workflows[0].id);
+      const preferred = visibleWorkflows()[0] || templateWorkflows()[0] || null;
+      if (!state.selected && preferred) return selectWorkflow(preferred.id);
       if (state.selected && state.workflows.some((wf) => wf.id === state.selected.id)) return selectWorkflow(state.selected.id);
-      state.selected = state.workflows[0] || null;
+      state.selected = preferred;
       render();
     });
   }
@@ -631,6 +870,93 @@
     return (state.projects || []).find((item) => item.id === projectId);
   }
 
+  function templateWorkflows() {
+    return (state.workflows || []).filter((wf) => wf.template_key);
+  }
+
+  function visibleWorkflows() {
+    return (state.workflows || []).filter((wf) => !wf.template_key && (!state.selectedProject || wf.project_id === state.selectedProject));
+  }
+
+  function displayWorkflowName(wf) {
+    if (!wf) return "";
+    if (!wf.template_key) return wf.name || wf.id;
+    const map = {
+      feature_until_green: state.locale && state.locale.startsWith("zh") ? "功能开发直到验证通过" : "Feature until green",
+      bugfix_loop: state.locale && state.locale.startsWith("zh") ? "缺陷修复闭环" : "Bugfix loop",
+      refactor_with_guardrails: state.locale && state.locale.startsWith("zh") ? "带护栏的重构" : "Refactor with guardrails",
+      docs_validation: state.locale && state.locale.startsWith("zh") ? "文档验证流程" : "Docs validation",
+    };
+    return map[wf.template_key] || wf.name || wf.template_key;
+  }
+
+  function workflowMeta(wf) {
+    const t = copy();
+    if (wf.template_key) return t.selectedTemplate;
+    return displayStatus(wf.status || "draft") + " · " + (wf.tasks || []).length + " " + t.tasks;
+  }
+
+  function displayWorkflowGoal(wf) {
+    if (!wf || !String(state.locale || "").startsWith("zh")) return (wf && wf.goal) || "";
+    const goals = {
+      feature_until_green: "实现需求、运行验证、修复失败，并只在验证通过后完成。",
+      bugfix_loop: "复现缺陷、完成修复、运行回归验证，并循环修复直到通过。",
+      refactor_with_guardrails: "分析影响、执行重构、运行验证，必要时复核并修复失败。",
+      docs_validation: "更新文档，验证命令或链接，必要时复核后完成。",
+    };
+    return goals[wf.template_key] || wf.goal || "";
+  }
+
+  function displayTaskTitle(task) {
+    if (!task || !String(state.locale || "").startsWith("zh")) return (task && task.title) || "";
+    const key = (task.metadata && task.metadata.template_task_key) || String(task.title || "").toLowerCase();
+    const titles = {
+      implement: "实现",
+      test: "测试",
+      fix: "修复",
+      complete: "完成",
+      reproduce: "复现",
+      patch: "修补",
+      validate: "验证",
+      review: "复核",
+      document: "文档",
+      update_docs: "更新文档",
+    };
+    return titles[key] || task.title || "";
+  }
+
+  function displayStatus(status) {
+    if (!String(state.locale || "").startsWith("zh")) return status || "";
+    const statuses = {
+      template: "模板",
+      draft: "草稿",
+      confirmed: "已确认",
+      ready: "就绪",
+      pending: "排队中",
+      running: "运行中",
+      paused: "已暂停",
+      passed: "已通过",
+      failed: "失败",
+      cancelled: "已取消",
+      interrupted: "已中断",
+      waiting_input: "等待输入",
+      completed: "已完成",
+    };
+    return statuses[status] || status || "";
+  }
+
+  function displayEdgeType(type) {
+    if (!String(state.locale || "").startsWith("zh")) return type || "";
+    const types = {
+      dependency: "依赖",
+      success: "成功",
+      failure: "失败",
+      always: "总是",
+      manual: "手动",
+    };
+    return types[type] || type || "";
+  }
+
   function isTerminalRun(status) {
     return ["passed", "failed", "guardrail_stopped", "cancelled", "interrupted", "stopped"].indexOf(status) !== -1;
   }
@@ -688,8 +1014,12 @@
 
   function FlowPage() {
     const React = window.__HERMES_PLUGIN_SDK__.React;
+    const useI18n = window.__HERMES_PLUGIN_SDK__.useI18n;
+    const i18n = useI18n ? useI18n() : { locale: window.localStorage && window.localStorage.getItem("hermes-locale") };
+    const locale = (i18n && i18n.locale) || "en";
     const hostRef = React.useRef(null);
     React.useEffect(function () {
+      state.locale = locale;
       const host = hostRef.current;
       if (!host) return undefined;
       host.appendChild(root);
@@ -707,7 +1037,7 @@
         }
         root.remove();
       };
-    }, []);
+    }, [locale]);
     return React.createElement("div", { className: "hf-plugin-host", ref: hostRef });
   }
 
