@@ -80,8 +80,8 @@
 
 .hf-grid {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
-  gap: 24px;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 22px;
   align-items: start;
 }
 
@@ -360,14 +360,15 @@
 
 .hf-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 16px;
+  grid-template-columns: minmax(520px, 1fr) 320px;
+  gap: 14px;
   align-items: start;
 }
 
 .hf-canvas {
   position: relative;
-  min-height: 560px;
+  height: clamp(380px, calc(100dvh - 340px), 620px);
+  min-height: 0;
   overflow: auto;
   border: 1px solid #dfe6ef;
   border-radius: 10px;
@@ -378,8 +379,36 @@
   background-size: 24px 24px;
 }
 
+.hf-canvas-inner {
+  position: relative;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.hf-edge-svg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.hf-edge-svg path {
+  fill: none;
+  stroke: #64748b;
+  stroke-width: 2;
+}
+
+.hf-edge-svg marker path {
+  fill: #64748b;
+}
+
+.hf-edge-svg .hf-edge-failure {
+  stroke: #b91c1c;
+  stroke-dasharray: 6 5;
+}
+
 .hf-template-flow {
-  min-height: 560px;
+  height: clamp(380px, calc(100dvh - 340px), 620px);
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   align-content: start;
@@ -453,6 +482,13 @@
   text-align: left;
   cursor: grab;
   touch-action: none;
+  user-select: none;
+}
+
+.hf-node:hover,
+.hf-node-active {
+  border-color: #111827;
+  box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.08), 0 10px 24px rgba(15, 23, 42, 0.12);
 }
 
 .hf-node.hf-dragging {
@@ -522,6 +558,35 @@
 .hf-task-form,
 .hf-edge-form {
   margin-bottom: 0;
+}
+
+.hf-task-form label {
+  display: grid;
+  gap: 6px;
+  color: #526173;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.hf-task-form label span {
+  color: #526173;
+}
+
+.hf-form-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.hf-secondary {
+  border-color: #d8dee8 !important;
+  color: #263244 !important;
+  background: #ffffff !important;
+}
+
+.hf-secondary:hover {
+  border-color: #a7b1c1 !important;
+  background: #f8fafc !important;
 }
 
 .hf-two {

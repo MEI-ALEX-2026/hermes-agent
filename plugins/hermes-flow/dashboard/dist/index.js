@@ -68,9 +68,15 @@
       taskTitle: "Task title",
       taskGoal: "Task goal",
       criteria: "Acceptance criteria",
-      executionDir: "Execution directory",
-      validation: "Validation commands",
-      aiReview: "AI review",
+      parentTask: "Parent task",
+      failureTask: "Failure fallback",
+      noParentTask: "No parent",
+      noFailureTask: "No failure fallback",
+      executor: "Executor",
+      aiAgent: "Hermes AI Agent",
+      cliExecutor: "CLI",
+      taskDetails: "Task details",
+      newTask: "New task",
       source: "Source",
       target: "Target",
       route: "Route",
@@ -143,9 +149,15 @@
       taskTitle: "任务标题",
       taskGoal: "任务目标",
       criteria: "验收标准",
-      executionDir: "执行目录",
-      validation: "验证命令",
-      aiReview: "AI 复核",
+      parentTask: "任务父节点",
+      failureTask: "任务失败后执行",
+      noParentTask: "无父节点",
+      noFailureTask: "无失败节点",
+      executor: "执行方式",
+      aiAgent: "Hermes AI Agent",
+      cliExecutor: "CLI",
+      taskDetails: "任务详情",
+      newTask: "新建任务",
       source: "起点",
       target: "终点",
       route: "路由",
@@ -295,19 +307,14 @@
     const tasks = wf.tasks || [];
     const edges = wf.edges || [];
     const isTemplate = Boolean(wf.template_key);
-    const nodes = tasks.map((task, index) => nodeView(task, index)).join("");
     return [
       '<div class="hf-toolbar">',
       '<div><h2>' + esc(displayWorkflowName(wf)) + '</h2><p>' + esc(displayWorkflowGoal(wf)) + '</p><div class="hf-meta-row"><span class="hf-pill">' + esc(isTemplate ? t.selectedTemplate : displayStatus(wf.status || "confirmed")) + '</span><span>' + esc(tasks.length) + ' ' + esc(t.tasks) + '</span><span>' + esc(edges.length) + ' ' + esc(t.edges) + '</span></div></div>',
       "</div>",
       '<div class="hf-workspace">',
-      isTemplate ? templateCanvas(wf) : '<div class="hf-canvas">' + (nodes || canvasEmpty()) + "</div>",
+      isTemplate ? templateCanvas(wf) : canvasView(tasks, edges),
       '<aside class="hf-editor">' + contextPanel(wf),
       "</aside>",
-      "</div>",
-      '<div class="hf-detail">',
-      '<span><strong>' + esc(t.guardrails) + '</strong> ' + esc(String(wf.max_loop_iterations)) + "/" + esc(String(wf.max_task_steps)) + "/" + esc(String(wf.max_duration_minutes)) + "m</span>",
-      edgeList(edges, tasks),
       "</div>",
     ].join("");
   }
@@ -320,11 +327,87 @@
   }
 
   function nodeView(task) {
+    const tasks = (state.selected && state.selected.tasks) || [];
+    const position = displayTaskPosition(task, tasks.indexOf(task), tasks);
+    const active = state.editingTaskId === task.id ? " hf-node-active" : "";
     return [
-      '<button class="hf-node" data-task-id="' + esc(task.id) + '" style="left:' + Number(task.position_x || 0) + 'px;top:' + Number(task.position_y || 0) + 'px">',
+      '<button class="hf-node' + active + '" data-task-id="' + esc(task.id) + '" style="left:' + position.x + 'px;top:' + position.y + 'px">',
       '<strong>' + esc(displayTaskTitle(task)) + "</strong>",
       '<span>' + esc(displayStatus(task.status)) + "</span>",
       "</button>",
+    ].join("");
+  }
+
+  function canvasView(tasks, edges) {
+    if (!tasks.length) return '<div class="hf-canvas">' + canvasEmpty() + "</div>";
+    const size = canvasSize(tasks);
+    return [
+      '<div class="hf-canvas">',
+      '<div class="hf-canvas-inner" style="width:' + size.width + 'px;height:' + size.height + 'px">',
+      edgeOverlay(edges, tasks, size),
+      tasks.map(nodeView).join(""),
+      "</div>",
+      "</div>",
+    ].join("");
+  }
+
+  function canvasSize(tasks) {
+    const maxX = Math.max(720, ...tasks.map((task, index) => displayTaskPosition(task, index, tasks).x + 260));
+    const maxY = Math.max(420, ...tasks.map((task, index) => displayTaskPosition(task, index, tasks).y + 150));
+    return { width: maxX, height: maxY };
+  }
+
+  function displayTaskPosition(task, index, tasks) {
+    if ((task.metadata || {}).manual_position) {
+      return { x: Number(task.position_x || 0), y: Number(task.position_y || 0) };
+    }
+    const key = (task.metadata && task.metadata.template_task_key) || String(task.title || "").toLowerCase();
+    const templatePositions = {
+      implement: { x: 0, y: 0 },
+      test: { x: 250, y: 0 },
+      fix: { x: 250, y: 145 },
+      complete: { x: 500, y: 0 },
+      reproduce: { x: 0, y: 0 },
+      patch: { x: 250, y: 0 },
+      validate: { x: 500, y: 0 },
+      review: { x: 250, y: 145 },
+      update_docs: { x: 0, y: 0 },
+    };
+    if (templatePositions[key]) return templatePositions[key];
+    const safeIndex = Math.max(0, index || 0);
+    const columns = (tasks || []).length <= 2 ? 2 : 3;
+    return {
+      x: (safeIndex % columns) * 250,
+      y: Math.floor(safeIndex / columns) * 145,
+    };
+  }
+
+  function edgeOverlay(edges, tasks, size) {
+    const byId = {};
+    tasks.forEach((task) => {
+      byId[task.id] = task;
+    });
+    const paths = (edges || [])
+      .map((edge) => {
+        const source = byId[edge.source_task_id];
+        const target = byId[edge.target_task_id];
+        if (!source || !target) return "";
+        const sourcePos = displayTaskPosition(source, tasks.indexOf(source), tasks);
+        const targetPos = displayTaskPosition(target, tasks.indexOf(target), tasks);
+        const sx = sourcePos.x + 210;
+        const sy = sourcePos.y + 42;
+        const tx = targetPos.x;
+        const ty = targetPos.y + 42;
+        const mid = Math.max(36, Math.abs(tx - sx) / 2);
+        const cls = edge.edge_type === "failure" ? "hf-edge-failure" : "hf-edge-success";
+        return '<path class="' + cls + '" d="M ' + sx + " " + sy + " C " + (sx + mid) + " " + sy + ", " + (tx - mid) + " " + ty + ", " + tx + " " + ty + '" marker-end="url(#hf-arrow)" />';
+      })
+      .join("");
+    return [
+      '<svg class="hf-edge-svg" width="' + size.width + '" height="' + size.height + '" viewBox="0 0 ' + size.width + " " + size.height + '" aria-hidden="true">',
+      '<defs><marker id="hf-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" /></marker></defs>',
+      paths,
+      "</svg>",
     ].join("");
   }
 
@@ -358,11 +441,7 @@
       '<p>' + esc((wf.status || "confirmed") === "confirmed" ? t.readyToRun : t.draftNeedsConfirm) + '</p>',
       workflowActions(wf),
       '</section>',
-      '<section class="hf-panel-section"><h3>' + esc(t.taskEditor) + '</h3>' + taskForm(wf) + '</section>',
-      '<section class="hf-panel-section"><h3>' + esc(t.edgeEditor) + '</h3>' + edgeForm(wf.tasks || []) + '</section>',
-      '<section class="hf-panel-section"><h3>' + esc(t.observations) + '</h3>' + logsView() + '</section>',
-      '<section class="hf-panel-section"><h3>' + esc(t.approvals) + '</h3>' + approvalsView() + '</section>',
-      '<details class="hf-advanced"><summary>' + esc(t.executorSetup) + '</summary><div class="hf-advanced-body">' + agentTemplateForm() + agentTemplateList() + bindingForm() + bindingList() + '</div></details>',
+      '<section class="hf-panel-section"><h3>' + esc(t.taskDetails) + '</h3>' + taskForm(wf) + '</section>',
     ].join("");
   }
 
@@ -392,44 +471,108 @@
   function taskForm(wf) {
     const t = copy();
     const task = findTask(state.editingTaskId) || {};
+    const parentId = parentTaskId(task.id);
+    const failureId = failureTaskId(task.id);
+    const executorMode = ((task.metadata || {}).executor_mode) || ((task.validation_commands || []).length ? "cli" : "ai_agent");
     return [
       '<form class="hf-task-form">',
-      '<input name="title" placeholder="' + esc(t.taskTitle) + '" required value="' + esc(task.title || "") + '" />',
-      '<textarea name="goal" placeholder="' + esc(t.taskGoal) + '">' + esc(task.goal || "") + "</textarea>",
-      '<textarea name="acceptance_criteria" placeholder="' + esc(t.criteria) + '">' + esc(task.acceptance_criteria || "") + "</textarea>",
-      '<input name="execution_dir" placeholder="' + esc(t.executionDir) + '" value="' + esc(task.execution_dir || "") + '" />',
-      '<input name="validation_commands" placeholder="' + esc(t.validation) + '" value="' + esc((task.validation_commands || []).join(", ")) + '" />',
-      '<label class="hf-check"><input name="ai_review_enabled" type="checkbox"' + (((task.metadata || {}).ai_review_enabled) ? " checked" : "") + " /> " + esc(t.aiReview) + "</label>",
-      '<div class="hf-two"><input name="position_x" type="number" aria-label="X" placeholder="X" value="' + Number(task.position_x == null ? (wf.tasks || []).length * 240 : task.position_x) + '" /><input name="position_y" type="number" aria-label="Y" placeholder="Y" value="' + Number(task.position_y || 0) + '" /></div>',
-      '<button type="submit">' + esc(state.editingTaskId ? t.saveTask : t.addTask) + "</button>",
+      '<label><span>' + esc(t.taskTitle) + '</span><input name="title" required value="' + esc(taskFormTitle(task)) + '" /></label>',
+      '<label><span>' + esc(t.taskGoal) + '</span><textarea name="goal">' + esc(taskFormGoal(task)) + "</textarea></label>",
+      '<label><span>' + esc(t.criteria) + '</span><textarea name="acceptance_criteria">' + esc(task.acceptance_criteria || "") + "</textarea></label>",
+      '<label><span>' + esc(t.parentTask) + '</span><select name="parent_task_id">' + taskOptions(wf.tasks || [], task.id, parentId, t.noParentTask) + "</select></label>",
+      '<label><span>' + esc(t.failureTask) + '</span><select name="failure_task_id">' + taskOptions(wf.tasks || [], task.id, failureId, t.noFailureTask) + "</select></label>",
+      '<label><span>' + esc(t.executor) + '</span><select name="executor_mode"><option value="ai_agent"' + selected("ai_agent", executorMode) + ">" + esc(t.aiAgent) + '</option><option value="cli"' + selected("cli", executorMode) + ">" + esc(t.cliExecutor) + "</option></select></label>",
+      '<div class="hf-form-actions"><button class="hf-secondary hf-new-task" type="button">' + esc(t.newTask) + '</button><button type="submit">' + esc(state.editingTaskId ? t.saveTask : t.addTask) + "</button></div>",
       "</form>",
     ].join("");
   }
 
-  function edgeForm(tasks) {
-    const t = copy();
-    const edge = findEdge(state.editingEdgeId) || {};
-    const sourceOptions = '<option value="">' + esc(t.source) + '</option>' + tasks.map((task) => '<option value="' + esc(task.id) + '"' + selected(task.id, edge.source_task_id) + ">" + esc(task.title) + "</option>").join("");
-    const targetOptions = '<option value="">' + esc(t.target) + '</option>' + tasks.map((task) => '<option value="' + esc(task.id) + '"' + selected(task.id, edge.target_task_id) + ">" + esc(task.title) + "</option>").join("");
-    const edgeType = edge.edge_type || "dependency";
-    return [
-      '<form class="hf-edge-form">',
-      '<select name="source_task_id">' + sourceOptions + "</select>",
-      '<select name="target_task_id">' + targetOptions + "</select>",
-      '<select name="edge_type">' + ["dependency", "success", "failure", "always", "manual"].map((type) => '<option value="' + type + '"' + selected(type, edgeType) + ">" + type + "</option>").join("") + "</select>",
-      '<button type="submit">' + esc(state.editingEdgeId ? t.saveEdge : t.addEdge) + "</button>",
-      "</form>",
-    ].join("");
+  function taskOptions(tasks, currentTaskId, selectedTaskId, emptyLabel) {
+    return '<option value="">' + esc(emptyLabel) + '</option>' + tasks
+      .filter((task) => task.id !== currentTaskId)
+      .map((task) => '<option value="' + esc(task.id) + '"' + selected(task.id, selectedTaskId) + ">" + esc(displayTaskTitle(task) || task.title || task.id) + "</option>")
+      .join("");
   }
 
-  function edgeList(edges, tasks) {
-    const t = copy();
-    const names = {};
-    tasks.forEach((task) => {
-      names[task.id] = displayTaskTitle(task);
+  function taskFormTitle(task) {
+    if (!task || !task.id) return "";
+    return String(state.locale || "").startsWith("zh") ? displayTaskTitle(task) : task.title || "";
+  }
+
+  function taskFormGoal(task) {
+    if (!task || !task.id) return "";
+    if (!String(state.locale || "").startsWith("zh")) return task.goal || "";
+    const key = (task.metadata && task.metadata.template_task_key) || String(task.title || "").toLowerCase();
+    const goals = {
+      implement: "实现需求。",
+      test: "运行验证命令并总结失败原因。",
+      fix: "根据失败摘要修复问题。",
+      complete: "总结改动并确认满足验收标准。",
+      reproduce: "复现缺陷并记录触发条件。",
+      patch: "修补缺陷。",
+      validate: "运行验证并记录结果。",
+      review: "复核改动质量和风险。",
+      update_docs: "更新相关文档。",
+    };
+    return goals[key] || task.goal || "";
+  }
+
+  function parentTaskId(taskId) {
+    if (!taskId || !state.selected) return "";
+    const edge = (state.selected.edges || []).find((item) => item.target_task_id === taskId && item.edge_type !== "failure");
+    return edge ? edge.source_task_id : "";
+  }
+
+  function failureTaskId(taskId) {
+    if (!taskId || !state.selected) return "";
+    const edge = (state.selected.edges || []).find((item) => item.source_task_id === taskId && item.edge_type === "failure");
+    return edge ? edge.target_task_id : "";
+  }
+
+  function nextTaskX(parentId) {
+    const parent = findTask(parentId);
+    if (parent) return Number(parent.position_x || 0) + 260;
+    return ((state.selected && state.selected.tasks) || []).length * 260;
+  }
+
+  function nextTaskY(parentId) {
+    const parent = findTask(parentId);
+    return parent ? Number(parent.position_y || 0) : 0;
+  }
+
+  function createdTaskId(workflow, beforeIds) {
+    const tasks = (workflow && workflow.tasks) || [];
+    const created = tasks.find((task) => !beforeIds.has(task.id));
+    return created ? created.id : "";
+  }
+
+  function reconcileTaskEdges(workflowId, taskId, parentId, failureId) {
+    const selectedEdges = (state.selected && state.selected.edges) || [];
+    const parentEdges = selectedEdges.filter((edge) => edge.target_task_id === taskId && edge.edge_type !== "failure");
+    const failureEdges = selectedEdges.filter((edge) => edge.source_task_id === taskId && edge.edge_type === "failure");
+    const operations = [];
+
+    parentEdges.forEach((edge) => {
+      if (!parentId || edge.source_task_id !== parentId) operations.push(() => api("/edges/" + encodeURIComponent(edge.id), { method: "DELETE" }));
     });
-    if (!edges.length) return '<div class="hf-edge-list"><span>' + esc(t.edges) + ': 0</span></div>';
-    return '<div class="hf-edge-list">' + edges.map((edge) => '<button type="button" data-edge-id="' + esc(edge.id) + '">' + esc(names[edge.source_task_id] || edge.source_task_id) + ' -> ' + esc(names[edge.target_task_id] || edge.target_task_id) + ' · ' + esc(displayEdgeType(edge.edge_type)) + "</button>").join("") + "</div>";
+    if (parentId && !parentEdges.some((edge) => edge.source_task_id === parentId)) {
+      operations.push(() => api("/workflows/" + encodeURIComponent(workflowId) + "/edges", {
+        method: "POST",
+        body: JSON.stringify({ source_task_id: parentId, target_task_id: taskId, edge_type: "success" }),
+      }));
+    }
+
+    failureEdges.forEach((edge) => {
+      if (!failureId || edge.target_task_id !== failureId) operations.push(() => api("/edges/" + encodeURIComponent(edge.id), { method: "DELETE" }));
+    });
+    if (failureId && !failureEdges.some((edge) => edge.target_task_id === failureId)) {
+      operations.push(() => api("/workflows/" + encodeURIComponent(workflowId) + "/edges", {
+        method: "POST",
+        body: JSON.stringify({ source_task_id: taskId, target_task_id: failureId, edge_type: "failure" }),
+      }));
+    }
+
+    return operations.reduce((promise, operation) => promise.then(operation), Promise.resolve());
   }
 
   function logsView() {
@@ -530,8 +673,11 @@
     if (useTemplateButton) useTemplateButton.addEventListener("click", () => cloneWorkflow(state.selected.id));
     const taskFormEl = root.querySelector(".hf-task-form");
     if (taskFormEl) taskFormEl.addEventListener("submit", submitTask);
-    const edgeFormEl = root.querySelector(".hf-edge-form");
-    if (edgeFormEl) edgeFormEl.addEventListener("submit", submitEdge);
+    const newTaskButton = root.querySelector(".hf-new-task");
+    if (newTaskButton) newTaskButton.addEventListener("click", () => {
+      state.editingTaskId = "";
+      render();
+    });
     const ptyInput = root.querySelector(".hf-pty-input");
     if (ptyInput) ptyInput.addEventListener("submit", submitPtyInput);
     const cancelRun = root.querySelector(".hf-cancel-run");
@@ -545,16 +691,6 @@
     });
     root.querySelectorAll(".hf-node").forEach((button) => {
       button.addEventListener("pointerdown", startNodeDrag);
-      button.addEventListener("click", () => {
-        if (button.__hfDragged) {
-          button.__hfDragged = false;
-          return;
-        }
-        fillTaskForm(button.getAttribute("data-task-id"));
-      });
-    });
-    root.querySelectorAll(".hf-edge-list button").forEach((button) => {
-      button.addEventListener("click", () => fillEdgeForm(button.getAttribute("data-edge-id")));
     });
   }
 
@@ -614,6 +750,9 @@
   function selectWorkflow(id) {
     return api("/workflows/" + encodeURIComponent(id)).then((wf) => {
       state.selected = wf;
+      if (!wf.template_key && (wf.tasks || []).length && !(wf.tasks || []).some((task) => task.id === state.editingTaskId)) {
+        state.editingTaskId = wf.tasks[0].id;
+      }
       render();
     });
   }
@@ -748,32 +887,30 @@
   function submitTask(event) {
     event.preventDefault();
     const data = formData(event.currentTarget);
-    data.validation_commands = splitList(data.validation_commands);
-    data.position_x = Number(data.position_x || 0);
-    data.position_y = Number(data.position_y || 0);
     const existing = findTask(state.editingTaskId) || {};
-    data.metadata = { ...(existing.metadata || {}), ai_review_enabled: data.ai_review_enabled === "on" };
-    delete data.ai_review_enabled;
+    const parentId = String(data.parent_task_id || "");
+    const failureId = String(data.failure_task_id || "");
+    const executorMode = String(data.executor_mode || "ai_agent");
+    delete data.parent_task_id;
+    delete data.failure_task_id;
+    delete data.executor_mode;
+    data.execution_dir = existing.execution_dir || "";
+    data.agent_template_id = existing.agent_template_id || null;
+    data.validation_commands = existing.validation_commands || [];
+    data.status = existing.status || "draft";
+    data.position_x = Number(existing.position_x == null ? nextTaskX(parentId) : existing.position_x);
+    data.position_y = Number(existing.position_y == null ? nextTaskY(parentId) : existing.position_y);
+    data.metadata = { ...(existing.metadata || {}), executor_mode: executorMode };
     const path = state.editingTaskId ? "/tasks/" + encodeURIComponent(state.editingTaskId) : "/workflows/" + encodeURIComponent(state.selected.id) + "/tasks";
+    const beforeIds = new Set(((state.selected && state.selected.tasks) || []).map((task) => task.id));
     api(path, { method: state.editingTaskId ? "PATCH" : "POST", body: JSON.stringify(data) })
       .then((workflow) => {
-        state.editingTaskId = "";
-        return workflow && workflow.tasks ? ((state.selected = workflow), load()) : selectWorkflow(state.selected.id);
+        const taskId = state.editingTaskId || createdTaskId(workflow, beforeIds);
+        if (!taskId) return selectWorkflow(state.selected.id);
+        state.editingTaskId = taskId;
+        return reconcileTaskEdges(state.selected.id, taskId, parentId, failureId).then(() => selectWorkflow(state.selected.id));
       })
       .catch((err) => alert("Task save failed: " + err.message));
-  }
-
-  function submitEdge(event) {
-    event.preventDefault();
-    const data = formData(event.currentTarget);
-    if (!data.source_task_id || !data.target_task_id) return;
-    const path = state.editingEdgeId ? "/edges/" + encodeURIComponent(state.editingEdgeId) : "/workflows/" + encodeURIComponent(state.selected.id) + "/edges";
-    api(path, { method: state.editingEdgeId ? "PATCH" : "POST", body: JSON.stringify(data) })
-      .then((result) => {
-        state.editingEdgeId = "";
-        return result && result.workflow ? ((state.selected = result.workflow), load()) : selectWorkflow(state.selected.id);
-      })
-      .catch((err) => alert("Edge save failed: " + err.message));
   }
 
   function fillTaskForm(taskId) {
@@ -782,13 +919,8 @@
     render();
   }
 
-  function fillEdgeForm(edgeId) {
-    if (!findEdge(edgeId)) return;
-    state.editingEdgeId = edgeId;
-    render();
-  }
-
   function startNodeDrag(event) {
+    event.preventDefault();
     const node = event.currentTarget;
     const taskId = node.getAttribute("data-task-id");
     const task = findTask(taskId);
@@ -830,7 +962,10 @@
     drag.node.__hfDragged = drag.moved;
     const done = drag;
     drag = null;
-    if (!done.moved) return;
+    if (!done.moved) {
+      fillTaskForm(done.task.id);
+      return;
+    }
     updateTaskPosition(done.task, Number(done.nextX || 0), Number(done.nextY || 0));
   }
 
@@ -845,17 +980,19 @@
       status: task.status || "draft",
       position_x: x,
       position_y: y,
-      metadata: task.metadata || {},
+      metadata: { ...(task.metadata || {}), manual_position: true },
     };
     task.position_x = x;
     task.position_y = y;
     api("/tasks/" + encodeURIComponent(task.id), {
       method: "PATCH",
       body: JSON.stringify(body),
-    }).catch((err) => {
-      alert("Task position save failed: " + err.message);
-      load();
-    });
+    })
+      .then(() => selectWorkflow(state.selected.id))
+      .catch((err) => {
+        alert("Task position save failed: " + err.message);
+        load();
+      });
   }
 
   function findTask(taskId) {
@@ -880,14 +1017,15 @@
 
   function displayWorkflowName(wf) {
     if (!wf) return "";
-    if (!wf.template_key) return wf.name || wf.id;
+    const key = workflowDisplayKey(wf);
+    if (!String(state.locale || "").startsWith("zh") && !wf.template_key) return wf.name || wf.id;
     const map = {
       feature_until_green: state.locale && state.locale.startsWith("zh") ? "功能开发直到验证通过" : "Feature until green",
       bugfix_loop: state.locale && state.locale.startsWith("zh") ? "缺陷修复闭环" : "Bugfix loop",
       refactor_with_guardrails: state.locale && state.locale.startsWith("zh") ? "带护栏的重构" : "Refactor with guardrails",
       docs_validation: state.locale && state.locale.startsWith("zh") ? "文档验证流程" : "Docs validation",
     };
-    return map[wf.template_key] || wf.name || wf.template_key;
+    return map[key] || wf.name || key || wf.id;
   }
 
   function workflowMeta(wf) {
@@ -898,13 +1036,29 @@
 
   function displayWorkflowGoal(wf) {
     if (!wf || !String(state.locale || "").startsWith("zh")) return (wf && wf.goal) || "";
+    const key = workflowDisplayKey(wf);
     const goals = {
       feature_until_green: "实现需求、运行验证、修复失败，并只在验证通过后完成。",
       bugfix_loop: "复现缺陷、完成修复、运行回归验证，并循环修复直到通过。",
       refactor_with_guardrails: "分析影响、执行重构、运行验证，必要时复核并修复失败。",
       docs_validation: "更新文档，验证命令或链接，必要时复核后完成。",
     };
-    return goals[wf.template_key] || wf.goal || "";
+    return goals[key] || wf.goal || "";
+  }
+
+  function workflowDisplayKey(wf) {
+    if (!wf) return "";
+    if (wf.template_key) return wf.template_key;
+    const normalized = String(wf.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    const aliases = {
+      feature_until_green: "feature_until_green",
+      bugfix_loop: "bugfix_loop",
+      refactor_with_guardrails: "refactor_with_guardrails",
+      docs_validation: "docs_validation",
+      docs_validation_: "docs_validation",
+      docs: "docs_validation",
+    };
+    return aliases[normalized] || "";
   }
 
   function displayTaskTitle(task) {
