@@ -164,6 +164,37 @@ def test_scheduler_runs_serial_success_route_with_pty_executor(tmp_path, monkeyp
     assert [task_run["status"] for task_run in run["task_runs"]] == ["passed", "passed"]
 
 
+def test_scheduler_default_executor_is_hermes_ai_agent(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_FLOW_HOME", str(tmp_path / "flow-home"))
+    db_mod = _import_flow_module("flow.db")
+    scheduler_mod = _import_flow_module("flow.scheduler")
+
+    db = db_mod.FlowDB()
+    db.initialize()
+    scheduler = scheduler_mod.Scheduler(db)
+
+    assert scheduler._executor_for(None).executor_type == "hermes_cli"
+
+
+def test_scheduler_task_executor_modes_map_to_project_cli_commands(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_FLOW_HOME", str(tmp_path / "flow-home"))
+    db_mod = _import_flow_module("flow.db")
+    scheduler_mod = _import_flow_module("flow.scheduler")
+
+    db = db_mod.FlowDB()
+    db.initialize()
+    workflow = {"default_agent_template_id": None}
+    scheduler = scheduler_mod.Scheduler(db)
+
+    claude = scheduler._executor_for_task(workflow, {"metadata": {"executor_mode": "claude_code_cli"}})
+    opencode = scheduler._executor_for_task(workflow, {"metadata": {"executor_mode": "opencode_cli"}})
+
+    assert claude.executor_type == "pty_cli"
+    assert claude.config["command"] == "claude -p"
+    assert opencode.executor_type == "pty_cli"
+    assert opencode.config["command"] == "opencode run"
+
+
 def test_scheduler_routes_plain_dependency_edges_and_updates_task_status(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_FLOW_HOME", str(tmp_path / "flow-home"))
     db_mod = _import_flow_module("flow.db")

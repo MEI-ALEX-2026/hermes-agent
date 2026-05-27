@@ -389,6 +389,7 @@
 }
 
 .hf-task-card {
+  position: relative;
   min-height: 68px;
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) auto;
@@ -470,6 +471,38 @@
 .hf-task-card .hf-task-status {
   color: inherit;
   background: rgba(255, 255, 255, 0.18);
+}
+
+.hf-task-card:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -13px;
+  width: 13px;
+  border-top: 2px dashed #94a3b8;
+}
+
+.hf-card-row-reverse .hf-task-card:not(:last-child)::after {
+  right: auto;
+  left: -13px;
+}
+
+.hf-card-row {
+  position: relative;
+}
+
+.hf-card-row:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  right: 16px;
+  bottom: -14px;
+  height: 14px;
+  border-right: 2px dashed #94a3b8;
+}
+
+.hf-card-row-reverse:not(:last-child)::after {
+  right: auto;
+  left: 16px;
 }
 
 .hf-task-done .hf-task-index,

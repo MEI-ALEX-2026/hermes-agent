@@ -191,8 +191,7 @@ class Scheduler:
         return run_id
 
     def _run_task(self, run_id: str, workflow: dict, task: dict, attempt: int) -> str:
-        executor_template = self.db.get_agent_template(task.get("agent_template_id") or workflow.get("default_agent_template_id"))
-        executor = self._executor_for(executor_template)
+        executor = self._executor_for_task(workflow, task)
         execution_dir = self._execution_dir(workflow, task)
         execution_dir.mkdir(parents=True, exist_ok=True)
         log_path = logs_dir() / run_id / f"{task['id']}.log"
@@ -426,12 +425,22 @@ class Scheduler:
 
     def _executor_for(self, template: Optional[dict]) -> BaseExecutor:
         if not template:
-            return ACPExecutor({"missing_template": True})
+            return HermesCLIExecutor({})
         if template["type"] == "pty_cli":
             return PtyCLIExecutor(template.get("config") or {})
         if template["type"] == "acp":
             return ACPExecutor(template.get("config") or {})
         return HermesCLIExecutor(template.get("config") or {})
+
+    def _executor_for_task(self, workflow: dict, task: dict) -> BaseExecutor:
+        metadata = task.get("metadata") or {}
+        mode = str(metadata.get("executor_mode") or "ai_agent")
+        if mode == "claude_code_cli":
+            return PtyCLIExecutor({"command": "claude -p", "append_prompt": True, "idle_timeout_seconds": 30})
+        if mode == "opencode_cli":
+            return PtyCLIExecutor({"command": "opencode run", "append_prompt": True, "idle_timeout_seconds": 30})
+        executor_template = self.db.get_agent_template(task.get("agent_template_id") or workflow.get("default_agent_template_id"))
+        return self._executor_for(executor_template)
 
     @staticmethod
     def _ensure_runnable(workflow: dict) -> None:

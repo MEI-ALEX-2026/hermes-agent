@@ -34,7 +34,7 @@
       start: "Start",
       createProject: "Create project",
       projectName: "Project name",
-      rootDir: "Repository path",
+      rootDir: "Local project directory",
       projectHint: "Create a project first. Workflows, templates, runs, and logs will stay scoped to it.",
       templates: "Templates",
       workflows: "Workflows",
@@ -67,13 +67,15 @@
       taskTitle: "Task title",
       taskGoal: "Task goal",
       criteria: "Acceptance criteria",
+      validation: "Validation",
       parentTask: "Parent task",
       failureTask: "Failure fallback",
       noParentTask: "No parent",
       noFailureTask: "No failure fallback",
       executor: "Executor",
       aiAgent: "Hermes AI Agent",
-      cliExecutor: "CLI",
+      claudeCodeCli: "Claude Code CLI",
+      opencodeCli: "OpenCode CLI",
       taskDetails: "Task details",
       newTask: "New task",
       source: "Source",
@@ -115,7 +117,7 @@
       start: "开始",
       createProject: "创建项目",
       projectName: "项目名称",
-      rootDir: "仓库路径",
+      rootDir: "本地项目工作目录",
       projectHint: "先创建项目。工作流、模板副本、运行记录和日志都会归属到项目下。",
       templates: "模板",
       workflows: "工作流",
@@ -148,13 +150,15 @@
       taskTitle: "任务标题",
       taskGoal: "任务目标",
       criteria: "验收标准",
+      validation: "验证",
       parentTask: "任务父节点",
       failureTask: "任务失败后执行",
       noParentTask: "无父节点",
       noFailureTask: "无失败节点",
       executor: "执行方式",
       aiAgent: "Hermes AI Agent",
-      cliExecutor: "CLI",
+      claudeCodeCli: "Claude Code CLI",
+      opencodeCli: "OpenCode CLI",
       taskDetails: "任务详情",
       newTask: "新建任务",
       source: "起点",
@@ -453,7 +457,7 @@
     const task = findTask(state.editingTaskId) || {};
     const parentId = parentTaskId(task.id);
     const failureId = failureTaskId(task.id);
-    const executorMode = ((task.metadata || {}).executor_mode) || ((task.validation_commands || []).length ? "cli" : "ai_agent");
+    const executorMode = normalizeExecutorMode((task.metadata || {}).executor_mode);
     return [
       '<form class="hf-task-form">',
       '<label><span>' + esc(t.taskTitle) + '</span><input name="title" required value="' + esc(taskFormTitle(task)) + '" /></label>',
@@ -461,7 +465,7 @@
       '<label><span>' + esc(t.criteria) + '</span><textarea name="acceptance_criteria">' + esc(task.acceptance_criteria || "") + "</textarea></label>",
       '<label><span>' + esc(t.parentTask) + '</span><select name="parent_task_id">' + taskOptions(wf.tasks || [], task.id, parentId, t.noParentTask) + "</select></label>",
       '<label><span>' + esc(t.failureTask) + '</span><select name="failure_task_id">' + taskOptions(wf.tasks || [], task.id, failureId, t.noFailureTask) + "</select></label>",
-      '<label><span>' + esc(t.executor) + '</span><select name="executor_mode"><option value="ai_agent"' + selected("ai_agent", executorMode) + ">" + esc(t.aiAgent) + '</option><option value="cli"' + selected("cli", executorMode) + ">" + esc(t.cliExecutor) + "</option></select></label>",
+      '<label><span>' + esc(t.executor) + '</span><select name="executor_mode"><option value="ai_agent"' + selected("ai_agent", executorMode) + ">" + esc(t.aiAgent) + '</option><option value="claude_code_cli"' + selected("claude_code_cli", executorMode) + ">" + esc(t.claudeCodeCli) + '</option><option value="opencode_cli"' + selected("opencode_cli", executorMode) + ">" + esc(t.opencodeCli) + "</option></select></label>",
       '<div class="hf-form-actions"><button class="hf-secondary hf-new-task" type="button">' + esc(t.newTask) + '</button><button type="submit">' + esc(state.editingTaskId ? t.saveTask : t.addTask) + "</button></div>",
       "</form>",
     ].join("");
@@ -495,6 +499,13 @@
       update_docs: "更新相关文档。",
     };
     return goals[key] || task.goal || "";
+  }
+
+  function normalizeExecutorMode(mode) {
+    const value = String(mode || "ai_agent");
+    if (value === "cli") return "claude_code_cli";
+    if (value === "claude_code_cli" || value === "opencode_cli") return value;
+    return "ai_agent";
   }
 
   function parentTaskId(taskId) {
