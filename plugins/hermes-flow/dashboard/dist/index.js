@@ -3,7 +3,6 @@
   root.className = "hf-root";
   let pollTimer = null;
   let ws = null;
-  let drag = null;
   let state = {
     projects: [],
     selectedProject: "",
@@ -312,7 +311,7 @@
       '<div><h2>' + esc(displayWorkflowName(wf)) + '</h2><p>' + esc(displayWorkflowGoal(wf)) + '</p><div class="hf-meta-row"><span class="hf-pill">' + esc(isTemplate ? t.selectedTemplate : displayStatus(wf.status || "confirmed")) + '</span><span>' + esc(tasks.length) + ' ' + esc(t.tasks) + '</span><span>' + esc(edges.length) + ' ' + esc(t.edges) + '</span></div></div>',
       "</div>",
       '<div class="hf-workspace">',
-      isTemplate ? templateCanvas(wf) : canvasView(tasks, edges),
+      taskCardsView(wf),
       '<aside class="hf-editor">' + contextPanel(wf),
       "</aside>",
       "</div>",
@@ -326,101 +325,82 @@
     return '<button class="hf-run" type="button">' + esc(t.queueRun) + '</button>';
   }
 
-  function nodeView(task) {
-    const tasks = (state.selected && state.selected.tasks) || [];
-    const position = displayTaskPosition(task, tasks.indexOf(task), tasks);
-    const active = state.editingTaskId === task.id ? " hf-node-active" : "";
+  function taskCardsView(wf) {
+    const tasks = wf.tasks || [];
+    if (!tasks.length) return '<div class="hf-card-flow">' + canvasEmpty() + "</div>";
+    const rows = orderedTaskRows(tasks, wf.edges || []).map((row, index) => ({ ...row, sequence: index + 1 }));
+    return '<div class="hf-card-flow">' + cardRows(rows).map((rowItems, rowIndex) => {
+      const reverse = rowIndex % 2 === 1;
+      const ordered = reverse ? rowItems.slice().reverse() : rowItems;
+      return '<div class="hf-card-row' + (reverse ? " hf-card-row-reverse" : "") + '">' + ordered.map(taskCard).join("") + "</div>";
+    }).join("") + "</div>";
+  }
+
+  function taskCard(row) {
+    const task = row.task;
+    const active = state.editingTaskId === task.id ? " hf-task-card-active" : "";
     return [
-      '<button class="hf-node' + active + '" data-task-id="' + esc(task.id) + '" style="left:' + position.x + 'px;top:' + position.y + 'px">',
-      '<strong>' + esc(displayTaskTitle(task)) + "</strong>",
-      '<span>' + esc(displayStatus(task.status)) + "</span>",
+      '<button class="hf-task-card ' + taskStateClass(task.status) + active + '" data-task-id="' + esc(task.id) + '">',
+      '<span class="hf-task-index">' + String(row.sequence || "") + "</span>",
+      '<span class="hf-task-copy"><strong>' + esc(displayTaskTitle(task)) + "</strong><em>" + esc(taskBranchLabel(row)) + "</em></span>",
+      '<span class="hf-task-status">' + esc(displayStatus(task.status || "draft")) + "</span>",
       "</button>",
     ].join("");
   }
 
-  function canvasView(tasks, edges) {
-    if (!tasks.length) return '<div class="hf-canvas">' + canvasEmpty() + "</div>";
-    const size = canvasSize(tasks);
-    return [
-      '<div class="hf-canvas">',
-      '<div class="hf-canvas-inner" style="width:' + size.width + 'px;height:' + size.height + 'px">',
-      edgeOverlay(edges, tasks, size),
-      tasks.map(nodeView).join(""),
-      "</div>",
-      "</div>",
-    ].join("");
+  function cardRows(rows) {
+    const perRow = 3;
+    const chunks = [];
+    for (let i = 0; i < rows.length; i += perRow) chunks.push(rows.slice(i, i + perRow));
+    return chunks;
   }
 
-  function canvasSize(tasks) {
-    const maxX = Math.max(720, ...tasks.map((task, index) => displayTaskPosition(task, index, tasks).x + 260));
-    const maxY = Math.max(420, ...tasks.map((task, index) => displayTaskPosition(task, index, tasks).y + 150));
-    return { width: maxX, height: maxY };
-  }
-
-  function displayTaskPosition(task, index, tasks) {
-    if ((task.metadata || {}).manual_position) {
-      return { x: Number(task.position_x || 0), y: Number(task.position_y || 0) };
-    }
-    const key = (task.metadata && task.metadata.template_task_key) || String(task.title || "").toLowerCase();
-    const templatePositions = {
-      implement: { x: 0, y: 0 },
-      test: { x: 250, y: 0 },
-      fix: { x: 250, y: 145 },
-      complete: { x: 500, y: 0 },
-      reproduce: { x: 0, y: 0 },
-      patch: { x: 250, y: 0 },
-      validate: { x: 500, y: 0 },
-      review: { x: 250, y: 145 },
-      update_docs: { x: 0, y: 0 },
-    };
-    if (templatePositions[key]) return templatePositions[key];
-    const safeIndex = Math.max(0, index || 0);
-    const columns = (tasks || []).length <= 2 ? 2 : 3;
-    return {
-      x: (safeIndex % columns) * 250,
-      y: Math.floor(safeIndex / columns) * 145,
-    };
-  }
-
-  function edgeOverlay(edges, tasks, size) {
+  function orderedTaskRows(tasks, edges) {
     const byId = {};
     tasks.forEach((task) => {
       byId[task.id] = task;
     });
-    const paths = (edges || [])
-      .map((edge) => {
-        const source = byId[edge.source_task_id];
-        const target = byId[edge.target_task_id];
-        if (!source || !target) return "";
-        const sourcePos = displayTaskPosition(source, tasks.indexOf(source), tasks);
-        const targetPos = displayTaskPosition(target, tasks.indexOf(target), tasks);
-        const sx = sourcePos.x + 210;
-        const sy = sourcePos.y + 42;
-        const tx = targetPos.x;
-        const ty = targetPos.y + 42;
-        const mid = Math.max(36, Math.abs(tx - sx) / 2);
-        const cls = edge.edge_type === "failure" ? "hf-edge-failure" : "hf-edge-success";
-        return '<path class="' + cls + '" d="M ' + sx + " " + sy + " C " + (sx + mid) + " " + sy + ", " + (tx - mid) + " " + ty + ", " + tx + " " + ty + '" marker-end="url(#hf-arrow)" />';
-      })
-      .join("");
-    return [
-      '<svg class="hf-edge-svg" width="' + size.width + '" height="' + size.height + '" viewBox="0 0 ' + size.width + " " + size.height + '" aria-hidden="true">',
-      '<defs><marker id="hf-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" /></marker></defs>',
-      paths,
-      "</svg>",
-    ].join("");
+    const successChildren = {};
+    const failureChildren = {};
+    const incoming = {};
+    (edges || []).forEach((edge) => {
+      if (!byId[edge.source_task_id] || !byId[edge.target_task_id]) return;
+      if (edge.edge_type === "failure") {
+        (failureChildren[edge.source_task_id] = failureChildren[edge.source_task_id] || []).push(edge.target_task_id);
+      } else {
+        (successChildren[edge.source_task_id] = successChildren[edge.source_task_id] || []).push(edge.target_task_id);
+      }
+      incoming[edge.target_task_id] = incoming[edge.target_task_id] || [];
+      incoming[edge.target_task_id].push(edge);
+    });
+    const visited = new Set();
+    const rows = [];
+    const roots = tasks.filter((task) => !(incoming[task.id] || []).length);
+    const start = roots.length ? roots : tasks.slice(0, 1);
+    start.forEach((task) => visitTask(task.id, 0, "root"));
+    tasks.forEach((task) => visitTask(task.id, 0, "root"));
+    return rows;
+
+    function visitTask(taskId, depth, branch) {
+      if (visited.has(taskId) || !byId[taskId]) return;
+      visited.add(taskId);
+      rows.push({ task: byId[taskId], depth, branch });
+      (failureChildren[taskId] || []).forEach((childId) => visitTask(childId, depth + 1, "failure"));
+      (successChildren[taskId] || []).forEach((childId) => visitTask(childId, depth + 1, "success"));
+    }
   }
 
-  function templateCanvas(wf) {
-    const tasks = wf.tasks || [];
-    if (!tasks.length) return '<div class="hf-template-flow">' + canvasEmpty() + '</div>';
-    return '<div class="hf-template-flow">' + tasks.map((task, index) => [
-      '<div class="hf-template-step">',
-      '<span>' + String(index + 1) + '</span>',
-      '<strong>' + esc(displayTaskTitle(task)) + '</strong>',
-      '<em>' + esc(displayStatus(task.status || "draft")) + '</em>',
-      '</div>',
-    ].join("")).join("") + '</div>';
+  function taskStateClass(status) {
+    if (status === "running") return "hf-task-running";
+    if (["passed", "completed", "complete"].indexOf(status) !== -1) return "hf-task-done";
+    if (["failed", "guardrail_stopped", "cancelled", "interrupted"].indexOf(status) !== -1) return "hf-task-failed";
+    return "hf-task-todo";
+  }
+
+  function taskBranchLabel(row) {
+    if (row.branch === "failure") return String(state.locale || "").startsWith("zh") ? "失败后执行" : "Failure branch";
+    if (row.branch === "success") return String(state.locale || "").startsWith("zh") ? "父任务完成后" : "After parent";
+    return String(state.locale || "").startsWith("zh") ? "起始任务" : "Start task";
   }
 
   function contextPanel(wf) {
@@ -689,8 +669,8 @@
     root.querySelectorAll(".hf-pty-row").forEach((button) => {
       button.addEventListener("click", () => selectPty(button.getAttribute("data-pty-id")));
     });
-    root.querySelectorAll(".hf-node").forEach((button) => {
-      button.addEventListener("pointerdown", startNodeDrag);
+    root.querySelectorAll(".hf-task-card").forEach((button) => {
+      button.addEventListener("click", () => fillTaskForm(button.getAttribute("data-task-id")));
     });
   }
 
@@ -919,88 +899,8 @@
     render();
   }
 
-  function startNodeDrag(event) {
-    event.preventDefault();
-    const node = event.currentTarget;
-    const taskId = node.getAttribute("data-task-id");
-    const task = findTask(taskId);
-    const canvas = root.querySelector(".hf-canvas");
-    if (!task || !canvas) return;
-    const rect = node.getBoundingClientRect();
-    drag = {
-      node,
-      task,
-      canvas,
-      offsetX: event.clientX - rect.left,
-      offsetY: event.clientY - rect.top,
-      startX: event.clientX,
-      startY: event.clientY,
-      moved: false,
-    };
-    node.setPointerCapture && node.setPointerCapture(event.pointerId);
-    node.classList.add("hf-dragging");
-    window.addEventListener("pointermove", moveNodeDrag);
-    window.addEventListener("pointerup", endNodeDrag, { once: true });
-  }
-
-  function moveNodeDrag(event) {
-    if (!drag) return;
-    const rect = drag.canvas.getBoundingClientRect();
-    const x = Math.max(0, Math.round(event.clientX - rect.left + drag.canvas.scrollLeft - drag.offsetX));
-    const y = Math.max(0, Math.round(event.clientY - rect.top + drag.canvas.scrollTop - drag.offsetY));
-    drag.node.style.left = x + "px";
-    drag.node.style.top = y + "px";
-    drag.nextX = x;
-    drag.nextY = y;
-    drag.moved = drag.moved || Math.abs(event.clientX - drag.startX) > 3 || Math.abs(event.clientY - drag.startY) > 3;
-  }
-
-  function endNodeDrag() {
-    if (!drag) return;
-    window.removeEventListener("pointermove", moveNodeDrag);
-    drag.node.classList.remove("hf-dragging");
-    drag.node.__hfDragged = drag.moved;
-    const done = drag;
-    drag = null;
-    if (!done.moved) {
-      fillTaskForm(done.task.id);
-      return;
-    }
-    updateTaskPosition(done.task, Number(done.nextX || 0), Number(done.nextY || 0));
-  }
-
-  function updateTaskPosition(task, x, y) {
-    const body = {
-      title: task.title || "",
-      goal: task.goal || "",
-      acceptance_criteria: task.acceptance_criteria || "",
-      execution_dir: task.execution_dir || "",
-      agent_template_id: task.agent_template_id || null,
-      validation_commands: task.validation_commands || [],
-      status: task.status || "draft",
-      position_x: x,
-      position_y: y,
-      metadata: { ...(task.metadata || {}), manual_position: true },
-    };
-    task.position_x = x;
-    task.position_y = y;
-    api("/tasks/" + encodeURIComponent(task.id), {
-      method: "PATCH",
-      body: JSON.stringify(body),
-    })
-      .then(() => selectWorkflow(state.selected.id))
-      .catch((err) => {
-        alert("Task position save failed: " + err.message);
-        load();
-      });
-  }
-
   function findTask(taskId) {
     return ((state.selected && state.selected.tasks) || []).find((item) => item.id === taskId);
-  }
-
-  function findEdge(edgeId) {
-    return ((state.selected && state.selected.edges) || []).find((item) => item.id === edgeId);
   }
 
   function findProject(projectId) {
